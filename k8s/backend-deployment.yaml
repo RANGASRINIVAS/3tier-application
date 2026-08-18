@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: 3tier-application-backend
+  namespace: 3tier-application
+  labels:
+    app: 3tier-application
+    tier: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: 3tier-application
+      tier: backend
+  template:
+    metadata:
+      labels:
+        app: 3tier-application
+        tier: backend
+    spec:
+      containers:
+        - name: backend
+          image: 3tierappacr.azurecr.io/3tier-backend:dev-latest
+          ports:
+            - containerPort: 5000
+          envFrom:
+            - configMapRef:
+                name: 3tier-application-config
+            - secretRef:
+                name: 3tier-application-secret
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 5

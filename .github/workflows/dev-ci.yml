@@ -10,7 +10,7 @@ on:
 
 env:
   ACR_LOGIN_SERVER: 3tierappacr.azurecr.io
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true    # ✅ properly opts into Node.js 24
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   # ─────────────────────────────────────────
