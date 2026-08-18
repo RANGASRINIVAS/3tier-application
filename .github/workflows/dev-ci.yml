@@ -10,6 +10,7 @@ on:
 
 env:
   ACR_LOGIN_SERVER: 3tierappacr.azurecr.io
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true   # suppresses Node.js 20 deprecation warning
 
 jobs:
   # ─────────────────────────────────────────
@@ -29,7 +30,7 @@ jobs:
       - name: Login to Azure Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ secrets.ACR_NAME }}
+          registry: 3tierappacr.azurecr.io        # hardcoded — not sensitive
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
