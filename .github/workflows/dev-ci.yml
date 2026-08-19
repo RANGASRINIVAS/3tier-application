@@ -53,4 +53,3 @@ jobs:
           tags: |
             3tierappacr.azurecr.io/3tier-frontend:${{ github.sha }}
             3tierappacr.azurecr.io/3tier-frontend:dev-latest
-            echo "# Updated $(date)" >> README.md
