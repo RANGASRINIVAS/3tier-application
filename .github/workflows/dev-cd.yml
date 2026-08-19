@@ -1,3 +1,4 @@
+```yaml
 name: 3-Tier Application - Development CD
 
 on:
@@ -7,7 +8,8 @@ on:
       - completed
     branches:
       - develop
-  push:                    # ← add this temporarily
+
+  push:
     branches:
       - develop
 
@@ -29,9 +31,11 @@ jobs:
   deploy:
     name: Deploy to AKS
     runs-on: ubuntu-latest
+
     if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
+
       # ── 1. Checkout ──────────────────────
       - name: Checkout source code
         uses: actions/checkout@v4
@@ -51,17 +55,32 @@ jobs:
           resource-group: ${{ env.AKS_RESOURCE_GROUP }}
           cluster-name: ${{ env.AKS_CLUSTER_NAME }}
 
-      # ── 4. Create Namespace ───────────────
+      # ── 4. Install kubelogin ─────────────
+      - name: Install kubelogin
+        uses: azure/use-kubelogin@v1
+
+      # ── 5. Configure kubelogin ───────────
+      - name: Configure kubelogin
+        run: |
+          kubelogin convert-kubeconfig -l azurecli
+
+      # ── 6. Verify AKS connectivity ───────
+      - name: Verify AKS connectivity
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+
+      # ── 7. Create Namespace ──────────────
       - name: Create namespace
         run: |
           kubectl apply -f k8s/3tier-applicationdev.yml
 
-      # ── 5. Deploy ConfigMap ───────────────
+      # ── 8. Deploy ConfigMap ──────────────
       - name: Deploy ConfigMap
         run: |
           kubectl apply -f k8s/configmap.yaml
 
-      # ── 6. Create Secret ──────────────────
+      # ── 9. Create Secret ─────────────────
       - name: Create Kubernetes Secret from GitHub Secrets
         run: |
           kubectl create secret generic 3tier-application-secret \
@@ -76,45 +95,51 @@ jobs:
             --from-literal=BACKEND_PORT=${{ secrets.BACKEND_PORT }} \
             --from-literal=FRONTEND_PORT=${{ secrets.FRONTEND_PORT }} \
             --namespace=${{ env.NAMESPACE }} \
-            --dry-run=client -o yaml | kubectl apply -f -
+            --dry-run=client \
+            -o yaml | kubectl apply -f -
 
-      # ── 7. Deploy Backend ─────────────────
+      # ── 10. Deploy Backend ───────────────
       - name: Deploy Backend
         run: |
           kubectl apply -f k8s/backend-deployment.yaml
           kubectl apply -f k8s/backend-service.yaml
 
-      # ── 8. Deploy Frontend ────────────────
+      # ── 11. Deploy Frontend ──────────────
       - name: Deploy Frontend
         run: |
           kubectl apply -f k8s/frontend-deployment.yaml
           kubectl apply -f k8s/frontend-service.yaml
 
-      # ── 9. Update Image Tags ──────────────
+      # ── 12. Update Image Tags ────────────
       - name: Update images with latest SHA
         run: |
           kubectl set image deployment/3tier-application-backend \
-            backend=3tierappacr.azurecr.io/3tier-backend:${{ github.sha }} \
+            backend=${{ env.ACR_LOGIN_SERVER }}/3tier-backend:${{ github.sha }} \
             -n ${{ env.NAMESPACE }}
 
           kubectl set image deployment/3tier-application-frontend \
-            frontend=3tierappacr.azurecr.io/3tier-frontend:${{ github.sha }} \
+            frontend=${{ env.ACR_LOGIN_SERVER }}/3tier-frontend:${{ github.sha }} \
             -n ${{ env.NAMESPACE }}
 
-      # ── 10. Verify Deployment ─────────────
+      # ── 13. Verify Backend Deployment ─────
       - name: Verify backend deployment
         run: |
           kubectl rollout status deployment/3tier-application-backend \
-            -n ${{ env.NAMESPACE }} --timeout=120s
+            -n ${{ env.NAMESPACE }} \
+            --timeout=120s
 
+      # ── 14. Verify Frontend Deployment ───
       - name: Verify frontend deployment
         run: |
           kubectl rollout status deployment/3tier-application-frontend \
-            -n ${{ env.NAMESPACE }} --timeout=120s
+            -n ${{ env.NAMESPACE }} \
+            --timeout=120s
 
-      # ── 11. Get Public IP ─────────────────
+      # ── 15. Get Frontend Public IP ────────
       - name: Get frontend public IP
         run: |
           echo "Waiting for public IP..."
           kubectl get service 3tier-application-frontend-service \
-            -n ${{ env.NAMESPACE }}
+            -n ${{ env.NAMESPACE }} \
+            -o wide
+```
