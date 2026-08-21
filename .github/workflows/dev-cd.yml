@@ -28,17 +28,13 @@ jobs:
 
     steps:
 
-      # ---------------------------------------------------------
       # 1. Checkout the exact commit that CI built
-      # ---------------------------------------------------------
       - name: Checkout source code
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      # ---------------------------------------------------------
       # 2. Login to Azure using OIDC
-      # ---------------------------------------------------------
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -46,72 +42,54 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # ---------------------------------------------------------
-      # 3. Install a fixed kubelogin version
-      #
-      # IMPORTANT:
-      # Do NOT use "latest" here.
-      # Do NOT use GITHUB_TOKEN here.
-      # ---------------------------------------------------------
+      # 3. Install kubelogin
       - name: Install kubelogin
-        uses: azure/use-kubelogin@v1
-        with:
-          kubelogin-version: 'v0.2.19'
-
-      # ---------------------------------------------------------
-      # 4. Get AKS credentials and configure kubelogin
-      # ---------------------------------------------------------
-      - name: Get AKS credentials
-        uses: azure/aks-set-context@v5
-        with:
-          resource-group: ${{ env.AKS_RESOURCE_GROUP }}
-          cluster-name: ${{ env.AKS_CLUSTER_NAME }}
-          admin: 'false'
-          use-kubelogin: 'true'
-
-      # ---------------------------------------------------------
-      # 5. Verify Azure authentication
-      # ---------------------------------------------------------
-      - name: Verify Azure account
         run: |
-          az account show
+          az aks install-cli
 
-      # ---------------------------------------------------------
-      # 6. Verify kubelogin installation
-      # ---------------------------------------------------------
+      # 4. Verify kubelogin installation
       - name: Verify kubelogin
         run: |
           kubelogin --version
 
-      # ---------------------------------------------------------
-      # 7. Verify AKS connectivity
-      # ---------------------------------------------------------
+      # 5. Get AKS credentials
+      - name: Get AKS credentials
+        uses: azure/aks-set-context@v4
+        with:
+          resource-group: ${{ env.AKS_RESOURCE_GROUP }}
+          cluster-name: ${{ env.AKS_CLUSTER_NAME }}
+
+      # 6. Configure kubelogin for Azure CLI authentication
+      - name: Configure kubelogin
+        run: |
+          kubelogin convert-kubeconfig -l azurecli
+
+      # 7. Verify Azure authentication
+      - name: Verify Azure account
+        run: |
+          az account show
+
+      # 8. Verify AKS connectivity
       - name: Verify AKS connectivity
         run: |
           kubectl cluster-info
           kubectl get nodes
 
-      # ---------------------------------------------------------
-      # 8. Create namespace
-      # ---------------------------------------------------------
+      # 9. Create namespace
       - name: Create namespace
         run: |
-          kubectl create namespace ${{ env.NAMESPACE }} \
+          kubectl create namespace "${{ env.NAMESPACE }}" \
             --dry-run=client \
             -o yaml | kubectl apply -f -
 
-      # ---------------------------------------------------------
-      # 9. Deploy ConfigMap
-      # ---------------------------------------------------------
+      # 10. Deploy ConfigMap
       - name: Deploy ConfigMap
         run: |
           kubectl apply \
             -f k8s/configmap.yaml \
-            -n ${{ env.NAMESPACE }}
+            -n "${{ env.NAMESPACE }}"
 
-      # ---------------------------------------------------------
-      # 10. Create / Update Kubernetes Secret
-      # ---------------------------------------------------------
+      # 11. Create / Update Kubernetes Secret
       - name: Create Kubernetes Secret
         run: |
           kubectl create secret generic 3tier-application-secret \
@@ -129,98 +107,82 @@ jobs:
             --dry-run=client \
             -o yaml | kubectl apply -f -
 
-      # ---------------------------------------------------------
-      # 11. Deploy Backend
-      # ---------------------------------------------------------
+      # 12. Deploy Backend
       - name: Deploy Backend
         run: |
           kubectl apply \
             -f k8s/backend-deployment.yaml \
-            -n ${{ env.NAMESPACE }}
+            -n "${{ env.NAMESPACE }}"
 
           kubectl apply \
             -f k8s/backend-service.yaml \
-            -n ${{ env.NAMESPACE }}
+            -n "${{ env.NAMESPACE }}"
 
-      # ---------------------------------------------------------
-      # 12. Deploy Frontend
-      # ---------------------------------------------------------
+      # 13. Deploy Frontend
       - name: Deploy Frontend
         run: |
           kubectl apply \
             -f k8s/frontend-deployment.yaml \
-            -n ${{ env.NAMESPACE }}
+            -n "${{ env.NAMESPACE }}"
 
           kubectl apply \
             -f k8s/frontend-service.yaml \
-            -n ${{ env.NAMESPACE }}
+            -n "${{ env.NAMESPACE }}"
 
-      # ---------------------------------------------------------
-      # 13. Update Backend Image
-      # ---------------------------------------------------------
+      # 14. Update Backend Image
       - name: Update Backend Image
         run: |
           kubectl set image \
             deployment/3tier-application-backend \
             backend=${{ env.ACR_LOGIN_SERVER }}/3tier-backend:${{ github.event.workflow_run.head_sha }} \
-            -n ${{ env.NAMESPACE }}
+            -n "${{ env.NAMESPACE }}"
 
-      # ---------------------------------------------------------
-      # 14. Update Frontend Image
-      # ---------------------------------------------------------
+      # 15. Update Frontend Image
       - name: Update Frontend Image
         run: |
           kubectl set image \
             deployment/3tier-application-frontend \
             frontend=${{ env.ACR_LOGIN_SERVER }}/3tier-frontend:${{ github.event.workflow_run.head_sha }} \
-            -n ${{ env.NAMESPACE }}
+            -n "${{ env.NAMESPACE }}"
 
-      # ---------------------------------------------------------
-      # 15. Verify Backend Deployment
-      # ---------------------------------------------------------
+      # 16. Verify Backend Deployment
       - name: Verify Backend Deployment
         run: |
           kubectl rollout status \
             deployment/3tier-application-backend \
-            -n ${{ env.NAMESPACE }} \
+            -n "${{ env.NAMESPACE }}" \
             --timeout=120s
 
-      # ---------------------------------------------------------
-      # 16. Verify Frontend Deployment
-      # ---------------------------------------------------------
+      # 17. Verify Frontend Deployment
       - name: Verify Frontend Deployment
         run: |
           kubectl rollout status \
             deployment/3tier-application-frontend \
-            -n ${{ env.NAMESPACE }} \
+            -n "${{ env.NAMESPACE }}" \
             --timeout=120s
 
-      # ---------------------------------------------------------
-      # 17. Check Kubernetes Resources
-      # ---------------------------------------------------------
+      # 18. Check Kubernetes Resources
       - name: Check Kubernetes Resources
         run: |
           echo "===== PODS ====="
           kubectl get pods \
-            -n ${{ env.NAMESPACE }} \
+            -n "${{ env.NAMESPACE }}" \
             -o wide
 
           echo "===== DEPLOYMENTS ====="
           kubectl get deployments \
-            -n ${{ env.NAMESPACE }}
+            -n "${{ env.NAMESPACE }}"
 
           echo "===== SERVICES ====="
           kubectl get services \
-            -n ${{ env.NAMESPACE }}
+            -n "${{ env.NAMESPACE }}"
 
-      # ---------------------------------------------------------
-      # 18. Get Frontend Public IP
-      # ---------------------------------------------------------
+      # 19. Get Frontend Public IP
       - name: Get Frontend Public IP
         run: |
           echo "===== FRONTEND SERVICE ====="
 
           kubectl get service \
             3tier-application-frontend-service \
-            -n ${{ env.NAMESPACE }} \
+            -n "${{ env.NAMESPACE }}" \
             -o wide
