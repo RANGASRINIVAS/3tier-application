@@ -224,6 +224,6 @@ jobs:
           echo "===== FRONTEND SERVICE ====="
 
           kubectl get service \
-            3tier-application-frontend-service \
+            frontend-service \
             -n "${{ env.NAMESPACE }}" \
             -o wide
