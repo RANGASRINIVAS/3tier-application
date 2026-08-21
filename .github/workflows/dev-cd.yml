@@ -46,6 +46,8 @@ jobs:
       # 3. Install kubelogin
       - name: Install kubelogin
         uses: azure/use-kubelogin@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # 4. Get AKS credentials
       - name: Get AKS credentials
@@ -141,6 +143,7 @@ jobs:
             --timeout=120s
 
       # 16. Verify Frontend Deployment
+      - name: Verify Frontend Deployment
       - name: Verify Frontend Deployment
         run: |
           kubectl rollout status deployment/3tier-application-frontend \
