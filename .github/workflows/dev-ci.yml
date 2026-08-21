@@ -1,10 +1,10 @@
-```yaml
 name: 3-Tier Application - Development CI
 
 on:
   push:
     branches:
       - develop
+
   pull_request:
     branches:
       - develop
@@ -14,23 +14,17 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  # ─────────────────────────────────────────
-  # JOB 1: Build & Push Docker Images to ACR
-  # ─────────────────────────────────────────
   docker-build:
     name: Build Docker Images
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout source code
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      # 2. Set up Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 3. Login to Azure Container Registry
       - name: Login to Azure Container Registry
         uses: docker/login-action@v3
         with:
@@ -38,8 +32,7 @@ jobs:
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
-      # 4. Build & Push Backend Image
-      - name: Build & Push backend image
+      - name: Build and Push Backend Image
         uses: docker/build-push-action@v6
         with:
           context: ./backend
@@ -49,8 +42,7 @@ jobs:
             ${{ env.ACR_LOGIN_SERVER }}/3tier-backend:${{ github.sha }}
             ${{ env.ACR_LOGIN_SERVER }}/3tier-backend:dev-latest
 
-      # 5. Build & Push Frontend Image
-      - name: Build & Push frontend image
+      - name: Build and Push Frontend Image
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
@@ -59,4 +51,3 @@ jobs:
           tags: |
             ${{ env.ACR_LOGIN_SERVER }}/3tier-frontend:${{ github.sha }}
             ${{ env.ACR_LOGIN_SERVER }}/3tier-frontend:dev-latest
-```

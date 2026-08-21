@@ -1,4 +1,3 @@
-```yaml
 name: 3-Tier Application - Development CD
 
 on:
@@ -168,4 +167,3 @@ jobs:
           kubectl get service 3tier-application-frontend-service \
             -n ${{ env.NAMESPACE }} \
             -o wide
-```
