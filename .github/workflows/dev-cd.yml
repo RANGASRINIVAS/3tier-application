@@ -1,3 +1,4 @@
+```yaml
 name: 3-Tier Application - Development CD
 
 on:
@@ -10,7 +11,7 @@ on:
       - develop
 
 env:
-  ACR_LOGIN_SERVER: 3tierappacr.azurecr.io
+  ACR_LOGIN_SERVER: 3tierappacr0.azurecr.io
   AKS_CLUSTER_NAME: 3TIER-APP-AKS
   AKS_RESOURCE_GROUP: RG-TEST
   NAMESPACE: 3tier-application
@@ -167,3 +168,4 @@ jobs:
           kubectl get service 3tier-application-frontend-service \
             -n ${{ env.NAMESPACE }} \
             -o wide
+```
