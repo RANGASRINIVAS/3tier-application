@@ -10,7 +10,7 @@ on:
       - develop
 
 env:
-  ACR_LOGIN_SERVER: 3tierappacr.azurecr.io
+  ACR_LOGIN_SERVER: 3tierappacr0.azurecr.io
   AKS_CLUSTER_NAME: 3TIER-APP-AKS
   AKS_RESOURCE_GROUP: RG-TEST
   NAMESPACE: 3tier-application
@@ -18,7 +18,7 @@ env:
 permissions:
   id-token: write
   contents: read
-  actions: read
+
 jobs:
   deploy:
     name: Deploy Development Application to AKS
@@ -34,7 +34,7 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      # 2. Login to Azure
+      # 2. Login to Azure using OIDC
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -44,45 +44,52 @@ jobs:
 
       # 3. Install kubelogin
       - name: Install kubelogin
-        uses: azure/use-kubelogin@v1
+        run: |
+          az aks install-cli
 
-      # 4. Get AKS credentials
+      # 4. Verify kubelogin installation
+      - name: Verify kubelogin
+        run: |
+          kubelogin --version
+
+      # 5. Get AKS credentials
       - name: Get AKS credentials
         uses: azure/aks-set-context@v4
         with:
           resource-group: ${{ env.AKS_RESOURCE_GROUP }}
           cluster-name: ${{ env.AKS_CLUSTER_NAME }}
 
-      # 5. Configure kubelogin
+      # 6. Configure kubelogin for Azure CLI authentication
       - name: Configure kubelogin
         run: |
           kubelogin convert-kubeconfig -l azurecli
 
-      # 6. Verify Azure authentication
+      # 7. Verify Azure authentication
       - name: Verify Azure account
         run: |
           az account show
 
-      # 7. Verify AKS connectivity
+      # 8. Verify AKS connectivity
       - name: Verify AKS connectivity
         run: |
           kubectl cluster-info
           kubectl get nodes
 
-      # 8. Create namespace
+      # 9. Create namespace
       - name: Create namespace
         run: |
-          kubectl create namespace ${{ env.NAMESPACE }} \
+          kubectl create namespace "${{ env.NAMESPACE }}" \
             --dry-run=client \
             -o yaml | kubectl apply -f -
 
-      # 9. Deploy ConfigMap
+      # 10. Deploy ConfigMap
       - name: Deploy ConfigMap
         run: |
-          kubectl apply -f k8s/configmap.yaml \
-            -n ${{ env.NAMESPACE }}
+          kubectl apply \
+            -f k8s/configmap.yaml \
+            -n "${{ env.NAMESPACE }}"
 
-      # 10. Create / Update Kubernetes Secret
+      # 11. Create / Update Kubernetes Secret
       - name: Create Kubernetes Secret
         run: |
           kubectl create secret generic 3tier-application-secret \
@@ -100,69 +107,82 @@ jobs:
             --dry-run=client \
             -o yaml | kubectl apply -f -
 
-      # 11. Deploy Backend
+      # 12. Deploy Backend
       - name: Deploy Backend
         run: |
-          kubectl apply -f k8s/backend-deployment.yaml \
-            -n ${{ env.NAMESPACE }}
+          kubectl apply \
+            -f k8s/backend-deployment.yaml \
+            -n "${{ env.NAMESPACE }}"
 
-          kubectl apply -f k8s/backend-service.yaml \
-            -n ${{ env.NAMESPACE }}
+          kubectl apply \
+            -f k8s/backend-service.yaml \
+            -n "${{ env.NAMESPACE }}"
 
-      # 12. Deploy Frontend
+      # 13. Deploy Frontend
       - name: Deploy Frontend
         run: |
-          kubectl apply -f k8s/frontend-deployment.yaml \
-            -n ${{ env.NAMESPACE }}
+          kubectl apply \
+            -f k8s/frontend-deployment.yaml \
+            -n "${{ env.NAMESPACE }}"
 
-          kubectl apply -f k8s/frontend-service.yaml \
-            -n ${{ env.NAMESPACE }}
+          kubectl apply \
+            -f k8s/frontend-service.yaml \
+            -n "${{ env.NAMESPACE }}"
 
-      # 13. Update Backend Image
+      # 14. Update Backend Image
       - name: Update Backend Image
         run: |
-          kubectl set image deployment/3tier-application-backend \
+          kubectl set image \
+            deployment/3tier-application-backend \
             backend=${{ env.ACR_LOGIN_SERVER }}/3tier-backend:${{ github.event.workflow_run.head_sha }} \
-            -n ${{ env.NAMESPACE }}
+            -n "${{ env.NAMESPACE }}"
 
-      # 14. Update Frontend Image
+      # 15. Update Frontend Image
       - name: Update Frontend Image
         run: |
-          kubectl set image deployment/3tier-application-frontend \
+          kubectl set image \
+            deployment/3tier-application-frontend \
             frontend=${{ env.ACR_LOGIN_SERVER }}/3tier-frontend:${{ github.event.workflow_run.head_sha }} \
-            -n ${{ env.NAMESPACE }}
+            -n "${{ env.NAMESPACE }}"
 
-      # 15. Verify Backend Deployment
+      # 16. Verify Backend Deployment
       - name: Verify Backend Deployment
         run: |
-          kubectl rollout status deployment/3tier-application-backend \
-            -n ${{ env.NAMESPACE }} \
+          kubectl rollout status \
+            deployment/3tier-application-backend \
+            -n "${{ env.NAMESPACE }}" \
             --timeout=120s
 
-      # 16. Verify Frontend Deployment
+      # 17. Verify Frontend Deployment
       - name: Verify Frontend Deployment
         run: |
-          kubectl rollout status deployment/3tier-application-frontend \
-            -n ${{ env.NAMESPACE }} \
+          kubectl rollout status \
+            deployment/3tier-application-frontend \
+            -n "${{ env.NAMESPACE }}" \
             --timeout=120s
 
-      # 17. Check Kubernetes Resources
+      # 18. Check Kubernetes Resources
       - name: Check Kubernetes Resources
         run: |
+          echo "===== PODS ====="
           kubectl get pods \
-            -n ${{ env.NAMESPACE }} \
+            -n "${{ env.NAMESPACE }}" \
             -o wide
 
+          echo "===== DEPLOYMENTS ====="
           kubectl get deployments \
-            -n ${{ env.NAMESPACE }}
+            -n "${{ env.NAMESPACE }}"
 
+          echo "===== SERVICES ====="
           kubectl get services \
-            -n ${{ env.NAMESPACE }}
+            -n "${{ env.NAMESPACE }}"
 
-      # 18. Get Frontend Public IP
+      # 19. Get Frontend Public IP
       - name: Get Frontend Public IP
         run: |
-          echo "Frontend service:"
-          kubectl get service 3tier-application-frontend-service \
-            -n ${{ env.NAMESPACE }} \
+          echo "===== FRONTEND SERVICE ====="
+
+          kubectl get service \
+            3tier-application-frontend-service \
+            -n "${{ env.NAMESPACE }}" \
             -o wide
