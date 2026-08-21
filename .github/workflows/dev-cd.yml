@@ -144,7 +144,6 @@ jobs:
 
       # 16. Verify Frontend Deployment
       - name: Verify Frontend Deployment
-      - name: Verify Frontend Deployment
         run: |
           kubectl rollout status deployment/3tier-application-frontend \
             -n ${{ env.NAMESPACE }} \
