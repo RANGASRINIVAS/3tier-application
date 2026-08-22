@@ -5,5 +5,5 @@ metadata:
   namespace: 3tier-application
 data:
   ENVIRONMENT: "development"
-  BACKEND_URL: "http://3tier-application-backend-service:5000"
+  BACKEND_URL: "http://backend-service:3001"
   APP_NAME: "3tier-application"
